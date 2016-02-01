@@ -1,0 +1,10 @@
+.connect-frame{
+	max-width: 490px;
+	min-width: 300px;
+	margin: 120px auto 0 auto;
+	padding: 25px;
+	border:1px solid #D9D9D9;
+	border-radius: 12px;
+	text-align: center;
+	display: block;
+}

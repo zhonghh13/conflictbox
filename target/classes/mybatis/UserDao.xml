@@ -1,0 +1,14 @@
+<?xml version = "1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.thucloud.conflictbox.dao.UserDao">
+	<select id="getUser" parameterType="map" resultType="map">
+		SELECT id, accessToken FROM user WHERE email=#{email} and password = #{password}
+	</select>
+	<insert id="insertUser" parameterType="map" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+		INSERT INTO user (email, password) VALUES (#{email}, #{password}) ON DUPLICATE KEY UPDATE password = #{password}
+	</insert>
+	<update id="updateToken" parameterType="map">
+		UPDATE user set accessToken = #{accessToken} where email=#{email}
+	</update>
+</mapper>

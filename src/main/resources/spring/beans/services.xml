@@ -1,0 +1,34 @@
+<beans xmlns="http://www.springframework.org/schema/beans"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://www.springframework.org/schema/beans
+	http://www.springframework.org/schema/beans/spring-beans-4.0.xsd">
+	<bean id="dropboxConnection" class="org.thucloud.conflictbox.service.utils.DropboxConnection">
+	</bean>
+	
+	<bean id="dataService" class="org.thucloud.conflictbox.service.impl.DataServiceImpl">
+		<property name="dropboxConnection" ref="dropboxConnection"></property>
+		<property name="fileInfoDao" ref="fileInfoDao"></property>
+		<property name="userDao" ref="userDao"></property>
+	</bean>
+	
+	<bean id="fileInfoDao" class="org.thucloud.conflictbox.dao.impl.FileInfoDaoImpl">
+		<property name="sqlSession" ref="sqlSession"></property>
+	</bean>
+	<bean id="userDao" class="org.thucloud.conflictbox.dao.impl.UserDaoImpl">
+		<property name="sqlSession" ref="sqlSession"></property>
+	</bean>
+	
+	<bean id="dataController" class="org.thucloud.conflictbox.controller.DataController">
+		<property name="dataService" ref="dataService"></property>
+	</bean>
+	
+	<bean id="dropboxAuth" class="org.thucloud.conflictbox.service.impl.DropboxAuth">
+	</bean>
+	<bean id="userController" class="org.thucloud.conflictbox.controller.UserController">
+		<property name="dataService" ref="dataService"></property>
+		<property name="APP_KEY" value="${app.key}"></property>
+		<property name="APP_SECRET" value="${app.secret}"></property>
+		<property name="dropboxAuth" ref="dropboxAuth"></property>
+	</bean>
+	
+</beans>
