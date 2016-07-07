@@ -16,4 +16,6 @@ public interface DataService {
 			ArrayList<String> dirsList, ArrayList<String> filesList, String username, String password, int layer, String fatherPath);
 
 	public Map<String, Object> setUser(String username, String password);
+
+	public Map<String, Object> listFolders(String auth) throws Exception;
 }

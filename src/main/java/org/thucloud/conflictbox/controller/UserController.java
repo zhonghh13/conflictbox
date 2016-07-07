@@ -8,6 +8,7 @@ import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.net.ssl.HttpsURLConnection;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
@@ -58,6 +59,7 @@ public class UserController {
 		map.put("user", null);
 		if (isExist != null && isExist.get("accessToken") != null){
 			System.out.println(isExist.get("accessToken"));
+			map.put("accessToken", isExist.get("accessToken"));
 			map.put("isExist", true);
 		}
 		if (isExist != null){
@@ -65,8 +67,24 @@ public class UserController {
 			request.getSession(true).setAttribute("logged-in-username", username);
 		}		
 		System.out.println("isExist "+ isExist);
+//		response.setHeader("set-cookie", (String)isExist.get("accessToken"));
 		return ResponseUtil.wrapNormalReturn(map);
 	}
+	
+	@RequestMapping(value="/list_shared_folders", method = RequestMethod.POST)
+	@ResponseBody
+	public String listFolders(HttpServletRequest request, HttpServletResponse response) throws Exception{
+		String header = request.getHeader("Authorization");
+		String auth = header.substring("Bearer ".length());
+		
+		Map<String, Object> result = dataService.listFolders(auth);
+		
+		Gson json = new GsonBuilder().disableHtmlEscaping().create();
+		String jsonString = json.toJson(result);
+		System.out.println(jsonString);
+		return jsonString;
+	}
+	
 	
 	@RequestMapping(value="/setUser", method = RequestMethod.POST)
 	@ResponseBody
@@ -94,7 +112,11 @@ public class UserController {
 		String password = user.getPassword();
 		System.out.println(password);
 		Map<String, Object> userResult = dataService.setUser(username, password);
-		return ResponseUtil.wrapNormalReturn(userResult);
+		
+		Gson json = new GsonBuilder().disableHtmlEscaping().create();
+		String jsonString = json.toJson(userResult);
+//		return ResponseUtil.wrapNormalReturn(userResult);
+		return jsonString;
 	}
 	
 	@RequestMapping(value="/dropbox-auth-start", method=RequestMethod.POST)
@@ -115,6 +137,7 @@ public class UserController {
 		response.setHeader("Access-Control-Allow-Origin", "*");
 		HashMap<String, Object> map = new HashMap<String, Object>();
 		map.put("url", authorizeUrl);
+		System.out.println(authorizeUrl);
 		return ResponseUtil.wrapNormalReturn(map);
 	}
 	

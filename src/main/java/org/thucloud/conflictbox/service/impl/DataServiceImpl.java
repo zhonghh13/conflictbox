@@ -1,27 +1,44 @@
 package org.thucloud.conflictbox.service.impl;
 
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.Proxy.Type;
+import java.net.URL;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import javax.net.ssl.HttpsURLConnection;
 import javax.servlet.http.HttpServletRequest;
 
 import org.thucloud.conflictbox.controller.utils.ResponseUtil;
 import org.thucloud.conflictbox.dao.FileInfoDao;
+import org.thucloud.conflictbox.dao.SharedFoldersDao;
 import org.thucloud.conflictbox.dao.UserDao;
+import org.thucloud.conflictbox.model.SharedFolderResponse;
+import org.thucloud.conflictbox.model.SharedFoldersJSON;
+import org.thucloud.conflictbox.model.User;
 import org.thucloud.conflictbox.service.DataService;
 import org.thucloud.conflictbox.service.utils.DropboxConnection;
 
 import com.dropbox.core.DbxException;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 public class DataServiceImpl implements DataService {
 	private DropboxConnection dropboxConnection;
 	private ArrayList<ArrayList<String>> resultList = new ArrayList<ArrayList<String>>();
 	private UserDao userDao;
 	private FileInfoDao fileInfoDao;
+	private SharedFoldersDao sharedFoldersDao;
 	
 	/**
 	 * @return the dropboxConnection
@@ -78,13 +95,18 @@ public class DataServiceImpl implements DataService {
 	public Map<String, Object> setUser(String username, String password) {
 		Map<String, Object> user = userDao.getUser(username, password);
 		int id = -1;
+		String token = null;
 		if (user != null){
 			id = (Integer) user.get("id");
+			token = (String)user.get("accessToken");
 		}else {
 			id = userDao.save(username, password);
 		}
 		Map<String, Object> resultMap = new HashMap<String, Object>();
 		resultMap.put("user", id);
+		if (token != null){
+			resultMap.put("accessToken", token);
+		}
 		return resultMap;
 	}
 	
@@ -189,9 +211,11 @@ public class DataServiceImpl implements DataService {
 	public String getData(String email, String seconds, String password,
 			String dirName, String father, HttpServletRequest request) {
 		System.out.println(email);
+		// 获取user信息
 		Map<String, Object> info = userDao.getUser(email, password);
 		int userId = (Integer)info.get("id");
 		String accessToken = (String)info.get("accessToken");
+		//获取文件信息
 		Map<String, String> map = fileInfoDao.getData(userId, dirName, father);
 
 		ArrayList<String> dirsList = new ArrayList<String>();
@@ -222,6 +246,7 @@ public class DataServiceImpl implements DataService {
 			}
 		}
 
+		// 获取Dropbox服务器上的数据信息
 		dropboxConnection.setAccessToken(accessToken);
 		System.out.println("dafea"+accessToken);
 		
@@ -252,7 +277,8 @@ public class DataServiceImpl implements DataService {
 			resultMap.put("error", "文件信息不存在");
 			ResponseUtil.wrapException(resultMap);
 		}
-
+		
+		//比较文件夹信息和文件信息，返回比较结果
 		dirResult = dirCompare(dirsList, dropboxDirs);
 		fileResult = fileCompare(filesList, dropboxFiles);
 		
@@ -265,8 +291,11 @@ public class DataServiceImpl implements DataService {
 		resultMap.put("time", time);
 		resultMap.put("seconds", seconds);
 		resultMap.put("father", father);
+		System.out.println(resultMap);
 		return ResponseUtil.wrapNormalReturn(resultMap);
 	}
+	
+	
 
 	/**
 	 * @return the userDao
@@ -298,6 +327,98 @@ public class DataServiceImpl implements DataService {
 
 	public void setAccessToken(String accessToken, String username) {
 		userDao.update(username, accessToken);
+	}
+
+	public Map<String, Object> listFolders(String auth) throws Exception {
+		String httpsUrl = "https://api.dropboxapi.com/2/sharing/list_folders";
+		URL url = new URL(httpsUrl);
+		HttpsURLConnection conn = (HttpsURLConnection)url.openConnection(new Proxy(Type.HTTP, new InetSocketAddress("166.111.80.96", 4128)));
+		conn.setRequestMethod("POST");
+		
+		System.out.println(auth);
+		
+		conn.setRequestProperty("Authorization", "Bearer "+auth);
+		conn.addRequestProperty("Content-Type", "application/json");
+		
+		System.out.println(conn.getRequestProperties());
+		
+		conn.setDoOutput(true);
+		conn.setDoInput(true);
+		
+		Map<String, Object> paramsMap = new HashMap<String, Object>();
+		ArrayList<String> actions = new ArrayList<String>();
+		paramsMap.put("limit", 100);
+		paramsMap.put("actions", actions);
+		Gson gson = new GsonBuilder().disableHtmlEscaping().create();
+		String params = gson.toJson(paramsMap);
+		
+//		String params = ResponseUtil.wrapNormalReturn(paramsMap);
+		System.out.println(params);
+		DataOutputStream output = new DataOutputStream(conn.getOutputStream());  
+		output.writeBytes(params);
+		output.close();
+		
+		InputStream inputStream = conn.getInputStream();
+		InputStreamReader reader = new InputStreamReader(inputStream);
+		BufferedReader br = new BufferedReader(reader);
+		
+		StringBuffer jsonStr = new StringBuffer();
+		String line = null;
+		
+		while ((line = br.readLine()) != null) {
+			System.out.println(line);
+			jsonStr.append(line);
+		}
+		
+		br.close();
+		
+		Gson json = new GsonBuilder().setPrettyPrinting() .disableHtmlEscaping().create();
+		System.out.println(jsonStr);
+		SharedFoldersJSON shareFolders = json.fromJson(jsonStr.toString(), SharedFoldersJSON.class);
+		
+		ArrayList<Map<String, Object>> entries = shareFolders.getEntries();
+		
+//		String[] folderIds = new String[entries.size()];
+//		for (int i = 0; i < entries.size(); i++){
+//			Map<String, Object> map = entries.get(i);
+//			folderIds[i] = (String)map.get("shared_folder_id");
+//		}
+		boolean flag = sharedFoldersDao.save(entries, auth);
+		
+		List<Map<String, Object>> revList = sharedFoldersDao.getRevsByAuthcode(auth);
+		HashMap<String, Integer> revMap = new HashMap<String, Integer>();
+		
+		for (int i = 0; i < revList.size(); i++){
+			revMap.put(revList.get(i).get("folderid").toString(), (Integer)revList.get(i).get("rev"));
+		}
+		
+		HashMap<String, Object> resultMap = new HashMap<String, Object>();
+		if (flag) {
+			resultMap.put("cursor", shareFolders.getCursor());
+			List<SharedFolderResponse> list = new ArrayList<SharedFolderResponse>();
+			for (int i = 0; i < entries.size(); i++){
+				SharedFolderResponse item = new SharedFolderResponse();
+				item.setId((String)entries.get(i).get("shared_folder_id"));
+				item.setName((String)entries.get(i).get("name"));
+				item.setTeamFolder((Boolean)entries.get(i).get("is_team_folder"));
+				item.setPath((String)entries.get(i).get("path_lower"));
+				item.setAccessType((String)((Map<String, Object>)entries.get(i).get("access_type")).get(".tag"));
+				item.setRev(revMap.get(item.getId()));
+				list.add(item);
+			}
+			resultMap.put("entries", list);
+		}
+		System.out.println(jsonStr);
+		
+		return resultMap;
+	}
+
+	public SharedFoldersDao getSharedFoldersDao() {
+		return sharedFoldersDao;
+	}
+
+	public void setSharedFoldersDao(SharedFoldersDao sharedFoldersDao) {
+		this.sharedFoldersDao = sharedFoldersDao;
 	}
 
 }

@@ -9,12 +9,19 @@ xsi:schemaLocation="http://www.springframework.org/schema/beans
 		<property name="dropboxConnection" ref="dropboxConnection"></property>
 		<property name="fileInfoDao" ref="fileInfoDao"></property>
 		<property name="userDao" ref="userDao"></property>
+		<property name="sharedFoldersDao" ref="sharedFoldersDao"></property>
 	</bean>
 	
 	<bean id="fileInfoDao" class="org.thucloud.conflictbox.dao.impl.FileInfoDaoImpl">
 		<property name="sqlSession" ref="sqlSession"></property>
 	</bean>
 	<bean id="userDao" class="org.thucloud.conflictbox.dao.impl.UserDaoImpl">
+		<property name="sqlSession" ref="sqlSession"></property>
+	</bean>
+	<bean id="sharedFoldersDao" class="org.thucloud.conflictbox.dao.impl.SharedFoldersDaoImpl">
+		<property name="sqlSession" ref="sqlSession"></property>
+	</bean>
+	<bean id="eventDao" class="org.thucloud.conflictbox.dao.impl.EventDaoImpl">
 		<property name="sqlSession" ref="sqlSession"></property>
 	</bean>
 	

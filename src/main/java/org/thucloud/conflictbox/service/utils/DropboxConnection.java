@@ -14,7 +14,7 @@ import com.dropbox.core.DbxEntry;
 import com.dropbox.core.DbxException;
 import com.dropbox.core.DbxRequestConfig;
 
-@Scope("prototype")
+//@Scope("prototype")
 public class DropboxConnection {
 	private String accessToken;
 	private String currentDirPath;

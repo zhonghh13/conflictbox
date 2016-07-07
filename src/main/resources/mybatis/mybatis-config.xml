@@ -10,5 +10,7 @@
 		<mapper resource="./mybatis/CompareDataDao.xml"/>
 		<mapper resource="./mybatis/FileInfoDao.xml"/>
 		<mapper resource="./mybatis/UserDao.xml"/>
+		<mapper resource="./mybatis/SharedFoldersDao.xml"/>
+		<mapper resource="./mybatis/EventDao.xml"/>
 	</mappers>
 </configuration>

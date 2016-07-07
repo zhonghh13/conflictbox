@@ -651,13 +651,10 @@ function getQueryString(name){
 	}
 	return null;
 }
-		
-function myRefresh(){
-	$.ajax({
-		url:"data/getdata",
-		type:"POST",
-		data:{"user": $.cookie("user"), "seconds": $("#refresh_time").val(), "password":$.cookie("password"), "dirName":dirName, "father": father, "code":code},
-		complete:function(){
+
+function reload_page(){
+
+			console.log("exe???");
 			var SelectedFolderID = "-1";
 			var PreviouslySelectedFolder = null;
 
@@ -829,7 +826,7 @@ function myRefresh(){
 					}
 
 					var table_html = "";
-					table_html += "<table id='files' class='tablesorter'><thead><tr><th>Name</th><th>Folder</th><th>Dropbox Time</th><th>Local Time</th><th>Sync Delay</th><th>Consistent</th></tr></thead><tbody>\n";
+					table_html += "<table id='files' class='tablesorter'><thead><tr><th>Name</th><th>/</th><th>Last Time</th><th>Last Modifier</th><th>Folder</th><th>Consistent</th></tr></thead><tbody>\n";
 
 					var numFiles = 0;
 					var numDirs = 0;
@@ -927,7 +924,7 @@ function myRefresh(){
 					$("#path_info").html( "<b>&gt;&gt;</b> " + dirs[FolderID][0].split("*")[0] );
 
 				var table_html = "";
-				table_html += "<table id='files' class='tablesorter'><thead><th>Name</th><th>Dropbox Time</th><th>Local Time</th><th>Sync Delay</th><th>Consistent</th></tr></thead><tbody>\n";
+				table_html += "<table id='files' class='tablesorter'><thead><th>Name</th><th>Last Time</th><th>Last Modifier</th><th>Folder</th><th>Consistent</th></tr></thead><tbody>\n";
 
 				var numFiles = 0;
 				var numDirs = 0;
@@ -1143,11 +1140,17 @@ function myRefresh(){
 				}*/
 				return bytes;
 			}
-			
-		},
+		}
+		
+function myRefresh(){
+	$.ajax({
+		url:"data/getdata",
+		type:"POST",
+		data:{"user": $.cookie("user"), "seconds": $("#refresh_time").val(), "password":$.cookie("password"), "dirName":dirName, "father": father, "code":code},
+		complete: function(){ reload_page();},
 		success:function (msg){
 			var data = eval('msg='+msg);
-			//console.log(data);
+			console.log(data);
 			if (data.status == 0){
 				dirs=new Array();
 				$(".info").text($.cookie("user")+" "+data.normalReturn.time);
@@ -1177,7 +1180,7 @@ function myRefresh(){
 				if (dirsLib.length > 0)subdirs = subdirs.substring(1);
 				//console.log(subdirs);
 				dirs[0][filesLib.length+1] = subdirs;
-				//console.log(dirs);
+				console.log(dirs);
 			}else{
 				dirName = father;
 				if (dirName == "") dirName = "/";
@@ -1193,8 +1196,8 @@ function myRefresh(){
 		$(document).ready(function(){
 	
 			console.log("ready");
-				myRefresh();
-            handleId=window.setInterval(function(){console.log("ready interval");myRefresh();}, 60000);
+				// myRefresh();
+            //handleId=window.setInterval(function(){console.log("ready interval");myRefresh();}, 60000);
 			
 			//setInterval(myRefresh(), 30000);
 			$(".mybtn").click(function (event){
@@ -1207,9 +1210,9 @@ function myRefresh(){
 				if (e.which == 13){
 					var seconds = $("#refresh_time").val();
 					
-					clearInterval(handleId);
+					//clearInterval(handleId);
 					//myRefresh();
-					handleId=window.setInterval(function(){console.log("enter");myRefresh();}, seconds*1000);
+					//handleId=window.setInterval(function(){console.log("enter");myRefresh();}, seconds*1000);
 										
 				}
 			});
@@ -1217,11 +1220,101 @@ function myRefresh(){
 			$("#refresh_time").blur(function(){
 				var seconds = $("#refresh_time").val();
 				console.log(seconds);
-				clearInterval(handleId);
+				//clearInterval(handleId);
 				//myRefresh();				
-				handleId=window.setInterval(function(){console.log("blur");myRefresh();}, seconds*1000);
+				//handleId=window.setInterval(function(){console.log("blur");myRefresh();}, seconds*1000);
 								
-			});			
+			});	
+			
+			var myDate = new Date();
+			$(".info").text($.cookie("user")+" "+ myDate.toLocaleTimeString());
+
+			var ws = new WebSocket("ws://localhost:8080/conflictbox/websocket/notify");
+			ws.onopen = function(){
+				
+				dirs = new Array();
+				dirs[0] = new Array();
+				dirs[0][0] = dirName+"* * * * ";
+				dirs[0][1] = "";
+				reload_page();
+				console.log("open!!!!");
+			};
+			ws.onmessage = function(evt){
+				var data = eval('msg='+evt.data);
+				console.log(data);
+				var myDate = new Date();
+				$(".info").text($.cookie("user")+" "+ myDate.toLocaleTimeString());
+				// if (data.auth == $.cookie("accessToken")){
+
+					var folder = data.Path.substring(1, data.Path.lastIndexOf("\\"));
+					var lastTime = data.ClientModified;
+					var lastModifier = data.ModifiedBy.substring(0, data.ModifiedBy.indexOf(" "));
+					var conflictField;
+					var item = data.Path.substring(folder.length + 2)+"*"+lastTime+"*" + lastModifier + "*" + folder + "*wrong";
+
+					console.log(dirs);
+
+					if (data.Event == "Changed"){
+						dirs[0][dirs[0].length - 1] = item;
+					} else if (data.Event == "synced"){
+						console.log(dirs[0].length);
+						var  j = 1;
+						for (var i = 1; i < dirs[0].length; i++){
+							var info = dirs[0][i].split("*");
+							var name = info[0];
+							var ltime = info[1];
+							var cfolder = info[3];
+
+							if (folder == cfolder && name == data.Path.substring(folder.length + 2) && ltime == lastTime) {
+								// j = j + 1;
+								dirs[0].splice(i,1);
+							}
+							// dirs[0][i] = dirs[0][j];
+							// j = j + 1;
+						}
+					}
+
+					if (dirs[0][dirs[0].length - 1] != "") dirs[0][dirs[0].length] = "";
+					console.log(dirs);
+					
+					reload_page();
+					
+
+					// filesLib
+
+					// //$("#refresh_time").val(data.normalReturn.seconds);
+					// var dirsLib = data.normalReturn.dirs;
+					// var filesLib = data.normalReturn.files;
+					// dirName = data.normalReturn.dirName;
+					// father = data.normalReturn.father;
+					// console.log(dirName);
+					// console.log(father);
+					// //console.log(lib.length);
+					// dirs[0] = new Array();
+					// dirs[0][0] = dirName+"* * * * ";
+					// for (var i = 0; i < filesLib.length; i++){
+					// 	dirs[0][i+1] = filesLib[i];
+					// }
+					// var subdirs = "";
+					// for (var i = 0; i < dirsLib.length; i++){
+					// 	subdirs += "*"+(i+1);
+					// 	dirs[i+1] = new Array();
+					// 	dirs[i+1][0] = dirsLib[i];
+					// 	dirs[i+1][1] = "";
+					// 	//for (var j=0; j < lib[i].length;j++){
+					// 		//dirs[i][j]=lib[i][j].replace("\\", "\\\\");
+					// 	//}
+					// }
+					// if (dirsLib.length > 0)subdirs = subdirs.substring(1);
+					// //console.log(subdirs);
+					// dirs[0][filesLib.length+1] = subdirs;
+					
+				// }
+				
+				console.log(evt.data);console.log("message comes"); 
+			};
+			ws.onclose = function(evt){console.log("WebSocketClosed!");};  
+			ws.onerror = function(evt){console.log("WebSocketError!");}; 
 			
 		});		// $(document).ready
 	</script>
@@ -1236,9 +1329,9 @@ function myRefresh(){
 			<div id="top_sub">
 				<span class="top_icon"></span>
 				<h1>ConflictBox</h1>
-				<label id="label_text">更新间隔：</label>
+				<!-- <label id="label_text">更新间隔：</label>
 				<input type="text" id="refresh_time" style="width:30px;margin-top:20px;" value="60"/>
-				<label id="label_s" style="padding-left:5px"> s</label>
+				<label id="label_s" style="padding-left:5px"> s</label> -->
 				<div class="mybtn btn btn-sm btn-primary">sign out</div> 
 			</div>
 			<div class="info"></div>

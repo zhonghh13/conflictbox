@@ -497,6 +497,7 @@ $
       							console.log(data.normalReturn.isExist);
       							$.cookie("user",data.normalReturn.user,{path:"/"});
       							$.cookie("password", password, {path:"/"});
+      							$.cookie("accessToken",data.normalReturn.accessToken, {path:"/"});
 								if (data.normalReturn.isExist){
 									location.href="show.html";
 								}else{
